@@ -88,42 +88,45 @@ const weatherApi = "https://api.weather.gov/alerts/active?area="
 </div>
 
 <script>
-    async function fetchAlerts() {
-        const state = document.getElementById('stateInput').value.toUpperCase().trim();
-        const resultsDiv = document.getElementById('alertResults');
-        const statusDiv = document.getElementById('statusMessage');
+   async function fetchWeatherAlerts(stateAbbr) {
+    const STATE_ABBR = stateAbbr.toUpperCase().trim();
 
-        // Reset UI
-        resultsDiv.innerHTML = '';
-        statusDiv.className = 'status';
-        
-        // Validation: Ensure it's a 2-letter string
-        if (!state || state.length !== 2) {
-            statusDiv.textContent = "⚠️ Please enter a valid 2-letter state code.";
-            statusDiv.classList.add('error');
+    if (STATE_ABBR.length !== 2) {
+        console.log("Invalid input: Please provide a 2-letter state abbreviation.");
+        return;
+    }
+
+    try {
+        const response = await fetch(`https://api.weather.gov/alerts/active?area=${STATE_ABBR}`);
+
+        if (!response.ok) {
+            console.log(`API Error: Received status ${response.status} for state ${STATE_ABBR}`);
             return;
         }
 
-        statusDiv.textContent = "Fetching latest safety data...";
-        statusDiv.classList.add('loading');
+        const data = await response.json();
+        console.log(`Successfully retrieved alerts for ${STATE_ABBR}:`, data);
+        return data; // Return it so the UI part can use it!
 
-        try {
-            // NWS API Endpoint for active alerts by state
-            const response = await fetch(`https://api.weather.gov/alerts/active?area=${state}`);
-            
-            if (!response.ok) {
-                throw new Error(`Server responded with ${response.status}`);
-            }
+    } catch (error) {
+        console.log("Network Error: Failed to reach the NWS API.", error.message);
+    }
+}
 
-            const data = await response.json();
-            const alerts = data.features;
-
-            statusDiv.textContent = ""; // Clear loading state
-
-            if (alerts.length === 0) {
-                resultsDiv.innerHTML = `<p>✅ No active alerts for ${state} at this time.</p>`;
-                return;
-            }
+// --- 2. THE UI PART (Where it "fits" in your app) ---
+// This function bridges the gap between the user clicking a button and your logic running.
+async function handleSearchClick() {
+    const userInput = document.getElementById('stateInput').value;
+    
+    // Call your function and store the result
+    const alertData = await fetchWeatherAlerts(userInput);
+    
+    if (alertData) {
+        // This is where we will eventually write code to 
+        // loop through alertData and show it on the screen.
+        console.log("We have data! Ready to build the UI.");
+    }
+}
 
             // Map and display headlines
             alerts.forEach(item => {
