@@ -1,152 +1,153 @@
-// index.js
-const weatherApi = "https://api.weather.gov/alerts/active?area="
-
-// Your code here!
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>State Safety Alert Monitor</title>
+    <title>National Safety Awareness - Weather Monitor</title>
     <style>
-        :root {
-            --primary: #003366;
-            --danger: #d9534f;
-            --light: #f4f4f9;
-        }
-
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--light);
-            margin: 0;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f0f2f5;
             padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
-
         .container {
-            max-width: 800px;
-            width: 100%;
+            max-width: 900px;
+            margin: auto;
             background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
-
-        .controls {
+        .search-box {
             display: flex;
             gap: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
         }
-
         input {
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
             flex-grow: 1;
-            text-transform: uppercase;
+            font-size: 1rem;
         }
-
         button {
-            padding: 10px 20px;
-            background-color: var(--primary);
+            padding: 12px 24px;
+            background-color: #004a99;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
+            font-weight: bold;
         }
-
-        button:hover { opacity: 0.9; }
-
-        .alert-card {
-            border-left: 5px solid var(--danger);
-            background: #fff5f5;
+        button:hover { background-color: #003366; }
+        
+        #statusMessage h3 {
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        ul { list-style-type: none; padding: 0; }
+        li {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            margin-bottom: 8px;
             padding: 15px;
-            margin-bottom: 10px;
+            border-left: 6px solid #ffcc00; /* Warning yellow */
             border-radius: 4px;
         }
-
-        .status { margin-top: 10px; font-weight: bold; }
-        .error { color: var(--danger); }
-        .loading { color: #666; font-style: italic; }
+        .error-text { color: #d9534f; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>State Weather Alert Monitor</h2>
-    <p>Enter a 2-letter state code (e.g., TX, CA, NY) to see active alerts.</p>
+    <h1>Weather Safety Monitor</h1>
+    <p>Enter a U.S. State abbreviation to fetch live alerts from the NWS.</p>
     
-    <div class="controls">
-        <input type="text" id="stateInput" placeholder="Enter State Code" maxlength="2">
-        <button onclick="fetchAlerts()">Get Alerts</button>
+    <div class="search-box">
+        <input type="text" id="stateInput" placeholder="e.g. MN, TX, CA" maxlength="2">
+        <button id="searchBtn">Fetch Alerts</button>
     </div>
 
-    <div id="statusMessage" class="status"></div>
+    <div id="statusMessage"></div>
     <div id="alertResults"></div>
 </div>
 
 <script>
-   async function fetchWeatherAlerts(stateAbbr) {
-    const STATE_ABBR = stateAbbr.toUpperCase().trim();
+    // --- EVENT LISTENER ---
+    // This triggers the process when the button is clicked
+    document.getElementById('searchBtn').addEventListener('click', async () => {
+        const state = document.getElementById('stateInput').value;
+        const data = await fetchWeatherAlerts(state);
+        if (data) {
+            displayAlerts(data, state);
+        }
+    });
 
-    if (STATE_ABBR.length !== 2) {
-        console.log("Invalid input: Please provide a 2-letter state abbreviation.");
-        return;
+    // --- LOGIC FUNCTION: Fetch Data ---
+    async function fetchWeatherAlerts(stateAbbr) {
+        const STATE_ABBR = stateAbbr.toUpperCase().trim();
+        const statusContainer = document.getElementById('statusMessage');
+        const resultsContainer = document.getElementById('alertResults');
+
+        if (STATE_ABBR.length !== 2) {
+            statusContainer.innerHTML = '<p class="error-text">Please enter a valid 2-letter state abbreviation.</p>';
+            resultsContainer.innerHTML = '';
+            return null;
+        }
+
+        try {
+            const response = await fetch(`https://api.weather.gov/alerts/active?area=${STATE_ABBR}`);
+            
+            if (!response.ok) {
+                console.log(`API Error: Received status ${response.status}`);
+                statusContainer.innerHTML = `<p class="error-text">Service Error: Could not find data for "${STATE_ABBR}".</p>`;
+                return null;
+            }
+
+            const data = await response.json();
+            console.log(`Successfully retrieved alerts for ${STATE_ABBR}:`, data);
+            return data;
+
+        } catch (error) {
+            console.log("Network Error:", error.message);
+            statusContainer.innerHTML = '<p class="error-text">Network Error: Unable to connect to the National Weather Service.</p>';
+            return null;
+        }
     }
 
-    try {
-        const response = await fetch(`https://api.weather.gov/alerts/active?area=${STATE_ABBR}`);
+    // --- UI FUNCTION: Display Data ---
+    function displayAlerts(data, state) {
+        const resultsContainer = document.getElementById('alertResults');
+        const statusContainer = document.getElementById('statusMessage');
 
-        if (!response.ok) {
-            console.log(`API Error: Received status ${response.status} for state ${STATE_ABBR}`);
+        // Clear existing content
+        resultsContainer.innerHTML = '';
+        
+        const alerts = data.features;
+        const alertCount = alerts.length;
+        const stateUpper = state.toUpperCase().trim();
+
+        // Summary Message using the 'title' property isn't always state-specific in the JSON root, 
+        // so we'll build the one requested using the alert count.
+        statusContainer.innerHTML = `<h3>Current watches, warnings, and advisories for ${stateUpper}: ${alertCount}</h3>`;
+
+        if (alertCount === 0) {
+            resultsContainer.innerHTML = '<p>No active alerts for this state at this time.</p>';
             return;
         }
 
-        const data = await response.json();
-        console.log(`Successfully retrieved alerts for ${STATE_ABBR}:`, data);
-        return data; // Return it so the UI part can use it!
+        const list = document.createElement('ul');
 
-    } catch (error) {
-        console.log("Network Error: Failed to reach the NWS API.", error.message);
-    }
-}
+        alerts.forEach(alert => {
+            const listItem = document.createElement('li');
+            // Accessing properties.headline as requested
+            listItem.textContent = alert.properties.headline;
+            list.appendChild(listItem);
+        });
 
-// --- 2. THE UI PART (Where it "fits" in your app) ---
-// This function bridges the gap between the user clicking a button and your logic running.
-async function handleSearchClick() {
-    const userInput = document.getElementById('stateInput').value;
-    
-    // Call your function and store the result
-    const alertData = await fetchWeatherAlerts(userInput);
-    
-    if (alertData) {
-        // This is where we will eventually write code to 
-        // loop through alertData and show it on the screen.
-        console.log("We have data! Ready to build the UI.");
-    }
-}
-
-            // Map and display headlines
-            alerts.forEach(item => {
-                const { headline, severity, description } = item.properties;
-                const card = document.createElement('div');
-                card.className = 'alert-card';
-                card.innerHTML = `
-                    <strong>${headline}</strong>
-                    <p style="font-size: 0.9em; color: #555; margin-top: 8px;">
-                        Severity: ${severity}
-                    </p>
-                `;
-                resultsDiv.appendChild(card);
-            });
-
-        } catch (error) {
-            console.error("Fetch error:", error);
-            statusDiv.textContent = "❌ Error: Could not connect to the Weather Service. Please check your connection or try again later.";
-            statusDiv.classList.add('error');
-        }
+        resultsContainer.appendChild(list);
     }
 </script>
 
