@@ -1,155 +1,58 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>National Safety Awareness - Weather Monitor</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            background-color: #f0f2f5;
-            padding: 20px;
-        }
-        .container {
-            max-width: 900px;
-            margin: auto;
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .search-box {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-        }
-        input {
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 6px;
-            flex-grow: 1;
-            font-size: 1rem;
-        }
-        button {
-            padding: 12px 24px;
-            background-color: #004a99;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        button:hover { background-color: #003366; }
+document.getElementById("fetch-alerts").addEventListener("click", fetchWeatherAlerts);
+
+async function fetchWeatherAlerts() {
+    const input = document.getElementById("state-input");
+    const stateInput = input.value.toUpperCase().trim();
+    const display = document.getElementById("alerts-display");
+    const errorDiv = document.getElementById("error-message");
+
+    // Reset UI
+    display.innerHTML = "";
+    errorDiv.classList.add("hidden");
+    errorDiv.textContent = "";
+
+    try {
+        const response = await fetch(`https://api.weather.gov/alerts/active?area=${stateInput}`);
         
-        #statusMessage h3 {
-            color: #333;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
-        }
-        ul { list-style-type: none; padding: 0; }
-        li {
-            background: #fff;
-            border: 1px solid #e0e0e0;
-            margin-bottom: 8px;
-            padding: 15px;
-            border-left: 6px solid #ffcc00; /* Warning yellow */
-            border-radius: 4px;
-        }
-        .error-text { color: #d9534f; font-weight: bold; }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <h1>Weather Safety Monitor</h1>
-    <p>Enter a U.S. State abbreviation to fetch live alerts from the NWS.</p>
-    
-    <div class="search-box">
-        <input type="text" id="stateInput" placeholder="e.g. MN, TX, CA" maxlength="2">
-        <button id="searchBtn">Fetch Alerts</button>
-    </div>
-
-    <div id="statusMessage"></div>
-    <div id="alertResults"></div>
-</div>
-
-<script>
-    // --- EVENT LISTENER ---
-    // This triggers the process when the button is clicked
-    document.getElementById('searchBtn').addEventListener('click', async () => {
-        const state = document.getElementById('stateInput').value;
-        const data = await fetchWeatherAlerts(state);
-        if (data) {
-            displayAlerts(data, state);
-        }
-    });
-
-    // --- LOGIC FUNCTION: Fetch Data ---
-    async function fetchWeatherAlerts(stateAbbr) {
-        const STATE_ABBR = stateAbbr.toUpperCase().trim();
-        const statusContainer = document.getElementById('statusMessage');
-        const resultsContainer = document.getElementById('alertResults');
-
-        if (STATE_ABBR.length !== 2) {
-            statusContainer.innerHTML = '<p class="error-text">Please enter a valid 2-letter state abbreviation.</p>';
-            resultsContainer.innerHTML = '';
-            return null;
+        if (!response.ok) {
+            throw new Error("Network failure");
         }
 
-        try {
-            const response = await fetch(`https://api.weather.gov/alerts/active?area=${STATE_ABBR}`);
-            
-            if (!response.ok) {
-                console.log(`API Error: Received status ${response.status}`);
-                statusContainer.innerHTML = `<p class="error-text">Service Error: Could not find data for "${STATE_ABBR}".</p>`;
-                return null;
-            }
-
-            const data = await response.json();
-            console.log(`Successfully retrieved alerts for ${STATE_ABBR}:`, data);
-            return data;
-
-        } catch (error) {
-            console.log("Network Error:", error.message);
-            statusContainer.innerHTML = '<p class="error-text">Network Error: Unable to connect to the National Weather Service.</p>';
-            return null;
-        }
-    }
-
-    // --- UI FUNCTION: Display Data ---
-    function displayAlerts(data, state) {
-        const resultsContainer = document.getElementById('alertResults');
-        const statusContainer = document.getElementById('statusMessage');
-
-        // Clear existing content
-        resultsContainer.innerHTML = '';
-        
+        const data = await response.json();
         const alerts = data.features;
-        const alertCount = alerts.length;
-        const stateUpper = state.toUpperCase().trim();
 
-        // Summary Message using the 'title' property isn't always state-specific in the JSON root, 
-        // so we'll build the one requested using the alert count.
-        statusContainer.innerHTML = `<h3>Current watches, warnings, and advisories for ${stateUpper}: ${alertCount}</h3>`;
+        // Requirement: Clear input field after a successful fetch call
+        input.value = "";
 
-        if (alertCount === 0) {
-            resultsContainer.innerHTML = '<p>No active alerts for this state at this time.</p>';
-            return;
-        }
+        // Requirement: Display a count header
+        const countHeader = document.createElement("h2");
+        countHeader.textContent = `Weather Alerts: ${alerts.length}`;
+        display.appendChild(countHeader);
 
-        const list = document.createElement('ul');
-
-        alerts.forEach(alert => {
-            const listItem = document.createElement('li');
-            // Accessing properties.headline as requested
-            listItem.textContent = alert.properties.headline;
-            list.appendChild(listItem);
-        });
-
-        resultsContainer.appendChild(list);
+        renderAlerts(alerts);
+    } catch (error) {
+        // Requirement: Display the specific error message (e.g., "Network failure")
+        errorDiv.textContent = error.message;
+        errorDiv.classList.remove("hidden");
     }
-</script>
+}
 
-</body>
-</html>
+function renderAlerts(alerts) {
+    const display = document.getElementById("alerts-display");
+    
+    alerts.forEach(alert => {
+        const alertBox = document.createElement("div");
+        
+        // Ensure we are pulling the right properties from the NWS API structure
+        const title = alert.properties.headline || "No Headline";
+        const severity = alert.properties.severity || "Unknown";
+        const description = alert.properties.description || "No description provided.";
+
+        alertBox.innerHTML = `
+            <h3>${title}</h3>
+            <p><strong>Severity:</strong> ${severity}</p>
+            <p>${description}</p>
+        `;
+        display.appendChild(alertBox);
+    });
+}
